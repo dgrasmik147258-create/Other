@@ -1,0 +1,121 @@
+# Alertmanager Configuration для Kafka Monitoring
+# Этот файл настраивает обработку и отправку алертов
+
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alertmanager@example.com'
+  smtp_auth_username: 'alertmanager'
+  smtp_auth_password: 'password'
+
+# Шаблоны для уведомлений
+templates:
+  - '/etc/alertmanager/template/*.tmpl'
+
+# Маршрутизация алертов
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'web.hook'
+  routes:
+    # Критические алерты
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      continue: true
+    
+    # Предупреждения Kafka
+    - match:
+        alertname: KafkaUnderReplicatedPartitions
+      receiver: 'kafka-alerts'
+      continue: true
+    
+    # Алерты оборудования
+    - match:
+        alertname: KafkaHighCPUUsage
+      receiver: 'hardware-alerts'
+      continue: true
+    - match:
+        alertname: KafkaHighMemoryUsage
+      receiver: 'hardware-alerts'
+      continue: true
+    - match:
+        alertname: KafkaHighDiskUsage
+      receiver: 'hardware-alerts'
+      continue: true
+
+# Получатели уведомлений
+receivers:
+  # Webhook для интеграции с внешними системами
+  - name: 'web.hook'
+    webhook_configs:
+      - url: 'http://127.0.0.1:5001/'
+        send_resolved: true
+
+  # Критические алерты
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'admin@example.com'
+        subject: '{{ template "email.subject" . }}'
+        html: '{{ template "email.html" . }}'
+        send_resolved: true
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#kafka-alerts'
+        title: '{{ template "slack.title" . }}'
+        text: '{{ template "slack.text" . }}'
+        send_resolved: true
+
+  # Алерты Kafka
+  - name: 'kafka-alerts'
+    email_configs:
+      - to: 'kafka-team@example.com'
+        subject: 'Kafka Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>Kafka Alert</h2>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Instance:</strong> {{ .CommonLabels.instance }}</p>
+        send_resolved: true
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#kafka-monitoring'
+        title: 'Kafka Alert: {{ .GroupLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+        send_resolved: true
+
+  # Алерты оборудования
+  - name: 'hardware-alerts'
+    email_configs:
+      - to: 'ops-team@example.com'
+        subject: 'Hardware Alert: {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>Hardware Alert</h2>
+          <p><strong>Alert:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Instance:</strong> {{ .CommonLabels.instance }}</p>
+        send_resolved: true
+    pagerduty_configs:
+      - routing_key: 'YOUR_PAGERDUTY_ROUTING_KEY'
+        description: '{{ .CommonAnnotations.description }}'
+        severity: '{{ .CommonLabels.severity }}'
+        send_resolved: true
+
+# Подавление алертов
+inhibit_rules:
+  # Подавлять предупреждения если есть критические алерты
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'cluster', 'service']
+  
+  # Подавлять алерты оборудования если узел недоступен
+  - source_match:
+      alertname: 'NodeDown'
+    target_match_re:
+      alertname: 'KafkaHighCPUUsage|KafkaHighMemoryUsage|KafkaHighDiskUsage'
+    equal: ['instance']

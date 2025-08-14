@@ -1,0 +1,120 @@
+# JMX Exporter Configuration для Kafka
+# Этот файл настраивает сбор JVM метрик из Kafka
+
+rules:
+  # JVM Threads
+  - pattern: "java.lang<type=Threading><>ThreadCount"
+    name: "jvm_threads_current"
+    type: GAUGE
+  - pattern: "java.lang<type=Threading><>PeakThreadCount"
+    name: "jvm_threads_peak"
+    type: GAUGE
+  - pattern: "java.lang<type=Threading><>DaemonThreadCount"
+    name: "jvm_threads_daemon"
+    type: GAUGE
+
+  # JVM Memory
+  - pattern: "java.lang<type=Memory><HeapMemoryUsage><>Used"
+    name: "jvm_memory_heap_used"
+    type: GAUGE
+  - pattern: "java.lang<type=Memory><HeapMemoryUsage><>Max"
+    name: "jvm_memory_heap_max"
+    type: GAUGE
+  - pattern: "java.lang<type=Memory><NonHeapMemoryUsage><>Used"
+    name: "jvm_memory_nonheap_used"
+    type: GAUGE
+
+  # JVM Garbage Collection
+  - pattern: "java.lang<type=GarbageCollector, name=([^>]+)><>CollectionCount"
+    name: "jvm_gc_collection_count"
+    type: COUNTER
+    labels:
+      gc: "$1"
+  - pattern: "java.lang<type=GarbageCollector, name=([^>]+)><>CollectionTime"
+    name: "jvm_gc_collection_time"
+    type: COUNTER
+    labels:
+      gc: "$1"
+
+  # Kafka Server Metrics
+  - pattern: "kafka.server<type=BrokerTopicMetrics,name=BytesInPerSec><>Count"
+    name: "kafka_server_brokertopicmetrics_bytesin_total"
+    type: COUNTER
+  - pattern: "kafka.server<type=BrokerTopicMetrics,name=BytesOutPerSec><>Count"
+    name: "kafka_server_brokertopicmetrics_bytesout_total"
+    type: COUNTER
+  - pattern: "kafka.server<type=BrokerTopicMetrics,name=MessagesInPerSec><>Count"
+    name: "kafka_server_brokertopicmetrics_messagesin_total"
+    type: COUNTER
+
+  # Kafka Network Metrics
+  - pattern: "kafka.network<type=RequestMetrics,name=TotalTimeMs><>Count"
+    name: "kafka_network_requestmetrics_totaltimems"
+    type: GAUGE
+  - pattern: "kafka.network<type=RequestMetrics,name=LocalTimeMs><>Count"
+    name: "kafka_network_requestmetrics_localtimems"
+    type: GAUGE
+  - pattern: "kafka.network<type=RequestMetrics,name=RequestQueueTimeMs><>Count"
+    name: "kafka_network_requestmetrics_requestqueuetimems"
+    type: GAUGE
+
+  # Kafka Controller Metrics
+  - pattern: "kafka.controller<type=KafkaController,name=ActiveBrokerCount><>Value"
+    name: "kafka_controller_kafkacontroller_activebrokercount"
+    type: GAUGE
+  - pattern: "kafka.controller<type=KafkaController,name=PartitionCount><>Value"
+    name: "kafka_controller_kafkacontroller_partitioncount"
+    type: GAUGE
+
+  # Kafka Replica Manager Metrics
+  - pattern: "kafka.server<type=ReplicaManager,name=UnderReplicatedPartitions><>Value"
+    name: "kafka_server_replicamanager_underreplicatedpartitions"
+    type: GAUGE
+
+  # Kafka Socket Server Metrics
+  - pattern: "kafka.server<type=SocketServer,name=ConnectionCount><>Value"
+    name: "kafka_server_socket_server_metrics_connection_count"
+    type: GAUGE
+
+  # Kafka Log Metrics
+  - pattern: "kafka.log<type=Log,name=LogEndOffset><>Value"
+    name: "kafka_log_logendoffset"
+    type: GAUGE
+  - pattern: "kafka.log<type=Log,name=LogStartOffset><>Value"
+    name: "kafka_log_logstartoffset"
+    type: GAUGE
+
+  # Kafka Consumer Metrics
+  - pattern: "kafka.consumer<type=consumer-fetch-manager-metrics,client-id=([^>]+)><>bytes-consumed-rate"
+    name: "kafka_consumer_fetch_manager_metrics_bytes_consumed_rate"
+    type: GAUGE
+    labels:
+      client_id: "$1"
+  - pattern: "kafka.consumer<type=consumer-fetch-manager-metrics,client-id=([^>]+)><>records-consumed-rate"
+    name: "kafka_consumer_fetch_manager_metrics_records_consumed_rate"
+    type: GAUGE
+    labels:
+      client_id: "$1"
+
+  # Kafka Consumer Group Metrics
+  - pattern: "kafka.consumer<type=consumer-group-metrics,group-id=([^>]+)><>max-lag"
+    name: "kafka_consumer_group_max_lag"
+    type: GAUGE
+    labels:
+      group: "$1"
+  - pattern: "kafka.consumer<type=consumer-group-metrics,group-id=([^>]+)><>rebalance-time-max"
+    name: "kafka_consumer_group_rebalance_time_max"
+    type: GAUGE
+    labels:
+      group: "$1"
+  - pattern: "kafka.consumer<type=consumer-group-metrics,group-id=([^>]+)><>members"
+    name: "kafka_consumer_group_members"
+    type: GAUGE
+    labels:
+      group: "$1"
+
+# Настройки экспорта
+startDelaySeconds: 0
+hostPort: "localhost:9999"
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
