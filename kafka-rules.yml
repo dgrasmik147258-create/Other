@@ -1,0 +1,124 @@
+# Kafka Recording Rules для Prometheus
+# Эти правила предварительно вычисляют часто используемые метрики
+
+groups:
+  - name: kafka.rules
+    rules:
+      # CPU Usage
+      - record: node:cpu_usage_percent
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
+      # Memory Usage
+      - record: node:memory_usage_percent
+        expr: 100 - ((node_memory_MemAvailable_bytes * 100) / node_memory_MemTotal_bytes)
+
+      # Disk Usage
+      - record: node:disk_usage_percent
+        expr: 100 - ((node_filesystem_avail_bytes{mountpoint="/"} * 100) / node_filesystem_size_bytes{mountpoint="/"})
+
+      # Kafka Request Rate
+      - record: kafka:requests_per_second
+        expr: rate(kafka_network_requestmetrics_requests_total[5m])
+
+      # Kafka Bytes In/Out Rate
+      - record: kafka:bytes_in_per_second
+        expr: rate(kafka_server_brokertopicmetrics_bytesin_total[5m])
+
+      - record: kafka:bytes_out_per_second
+        expr: rate(kafka_server_brokertopicmetrics_bytesout_total[5m])
+
+      # Consumer Lag
+      - record: kafka:consumer_lag_max
+        expr: max by (group, topic) (kafka_consumer_group_max_lag)
+
+      # Under Replicated Partitions
+      - record: kafka:under_replicated_partitions_total
+        expr: sum(kafka_server_replicamanager_underreplicatedpartitions)
+
+      # Active Controllers
+      - record: kafka:active_controller_count
+        expr: sum(kafka_controller_kafkacontroller_activebrokercount)
+
+      # Partition Count
+      - record: kafka:partition_count_total
+        expr: sum(kafka_controller_kafkacontroller_partitioncount)
+
+      # Connection Count
+      - record: kafka:connection_count_total
+        expr: sum(kafka_server_socket_server_metrics_connection_count)
+
+      # Failed Requests Rate
+      - record: kafka:failed_requests_per_second
+        expr: rate(kafka_server_brokertopicmetrics_failedproducerrequests_total[5m])
+
+      # Consumer Group Members
+      - record: kafka:consumer_group_members_total
+        expr: sum by (group) (kafka_consumer_group_members)
+
+      # Topic Message Count
+      - record: kafka:topic_message_count
+        expr: kafka_log_logendoffset - kafka_log_logstartoffset
+
+      # JVM Thread Count
+      - record: kafka:jvm_thread_count
+        expr: sum by (instance) (jvm_threads_state)
+
+      # Request Queue Time Average
+      - record: kafka:request_queue_time_avg_ms
+        expr: kafka_network_requestmetrics_requestqueuetimems
+
+      # Local Time Average
+      - record: kafka:local_time_avg_ms
+        expr: kafka_network_requestmetrics_localtimems
+
+      # Total Time Average
+      - record: kafka:total_time_avg_ms
+        expr: kafka_network_requestmetrics_totaltimems
+
+  - name: kafka.alerts
+    rules:
+      # Alert Rules (опционально)
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka:under_replicated_partitions_total > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka has under replicated partitions"
+          description: "Kafka cluster has {{ $value }} under replicated partitions"
+
+      - alert: KafkaHighConsumerLag
+        expr: kafka:consumer_lag_max > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High consumer lag detected"
+          description: "Consumer lag is {{ $value }} for group {{ $labels.group }}"
+
+      - alert: KafkaHighCPUUsage
+        expr: node:cpu_usage_percent > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on Kafka node"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: KafkaHighMemoryUsage
+        expr: node:memory_usage_percent > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on Kafka node"
+          description: "Memory usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: KafkaHighDiskUsage
+        expr: node:disk_usage_percent > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High disk usage on Kafka node"
+          description: "Disk usage is {{ $value }}% on {{ $labels.instance }}"

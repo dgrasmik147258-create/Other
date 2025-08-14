@@ -1,0 +1,62 @@
+# Prometheus Configuration for Kafka Monitoring
+# Этот файл содержит настройки для сбора метрик Kafka
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Kafka Broker Metrics
+  - job_name: 'kafka-brokers'
+    static_configs:
+      - targets: 
+        - 'kafka-broker-1:9308'
+        - 'kafka-broker-2:9308'
+        - 'kafka-broker-3:9308'
+    metrics_path: /metrics
+    scrape_interval: 15s
+    honor_labels: true
+
+  # Kafka Consumer Metrics
+  - job_name: 'kafka-consumers'
+    static_configs:
+      - targets:
+        - 'consumer-app-1:8080'
+        - 'consumer-app-2:8080'
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Node Exporter for Hardware Metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+        - 'kafka-node-1:9100'
+        - 'kafka-node-2:9100'
+        - 'kafka-node-3:9100'
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # JVM Metrics (if using JMX Exporter)
+  - job_name: 'kafka-jvm'
+    static_configs:
+      - targets:
+        - 'kafka-broker-1:9404'
+        - 'kafka-broker-2:9404'
+        - 'kafka-broker-3:9404'
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+# Alerting Rules (опционально)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Recording Rules для оптимизации запросов
+rule_files:
+  - "kafka-rules.yml"
